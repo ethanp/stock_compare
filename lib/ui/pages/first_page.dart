@@ -12,7 +12,8 @@ class YahooFinanceServiceWidget extends StatefulWidget {
 }
 
 class _YahooFinanceServiceWidgetState extends State<YahooFinanceServiceWidget> {
-  TextEditingController controller = TextEditingController(text: 'SOL-USD');
+  final TextEditingController controller =
+      TextEditingController(text: 'SOL-USD');
   List<YahooFinanceCandleData> pricesList = [];
   List? cachedPrices;
   bool loading = true;
@@ -25,48 +26,57 @@ class _YahooFinanceServiceWidgetState extends State<YahooFinanceServiceWidget> {
     load();
   }
 
-  void load() async {
-    loading = false;
-    setState(() {});
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
 
+  void load() async {
+    setState(() => loading = true);
+    await downloadData();
+    setState(() => loading = false);
+  }
+
+  Future<void> downloadData() async {
     try {
       // Get response for the first time
       pricesList = await YahooFinanceService().getTickerData(
         controller.text,
         startDate: startDate,
+        // When referring to the Yahoo Finance API, "adjust" means that the
+        // historical stock price data provided has been ADJUSTED to reflect
+        // any stock splits or dividend distributions that occurred during the
+        // time period, essentially giving you a "clean" price series that
+        // accounts for these corporate actions and allows for accurate
+        // comparisons across different timeframes despite the changes in
+        // share count.
         adjust: adjust,
       );
     } catch (e) {
-      debugPrint('Error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      showError(e);
     }
+  }
 
-    loading = false;
-    setState(() {});
+  void showError(Object e) {
+    debugPrint('Error: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   void deleteCache() async {
-    loading = true;
-    setState(() {});
+    setState(() => loading = true);
 
     try {
       await YahooFinanceDAO().removeDailyData(controller.text);
       cachedPrices = await YahooFinanceDAO().getAllDailyData(controller.text);
     } catch (e) {
-      debugPrint('Error: $e');
-      // Show snackbar with error
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      showError(e);
     }
 
-    loading = false;
-    setState(() {});
+    setState(() => loading = false);
   }
 
   void refresh() async {
@@ -107,28 +117,55 @@ class _YahooFinanceServiceWidgetState extends State<YahooFinanceServiceWidget> {
     return Card(
       child: Container(
         margin: const EdgeInsets.all(10),
-        child: Column(
-          children: [
-            ticker(tickerOptions),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: date(context),
-            ),
-            CheckboxListTile(
-              title: const Text('Adjust'),
-              value: adjust,
-              onChanged: (value) => setState(() => adjust = value ?? false),
-            ),
-            const Text('Ticker from yahoo finance:'),
-            TextField(
-              controller: controller,
-            ),
-            actionButtons(context),
-            if (pricesList.isNotEmpty) pricesInfo(),
-            Text('Prices in the cache ${cachedPrices?.length}'),
-            pricesList.isEmpty ? const Text('No data') : const SizedBox.shrink()
-          ],
-        ),
+        child: Column(children: [
+          ticker(tickerOptions),
+          datePicker(context),
+          toggleAdjust(),
+          const Text('Ticker from yahoo finance:'),
+          TextField(controller: controller),
+          actionButtons(context),
+          if (pricesList.isNotEmpty) pricesInfo(),
+          Text('Prices in the cache ${cachedPrices?.length}'),
+          pricesList.isEmpty ? const Text('No data') : const SizedBox.shrink(),
+        ]),
+      ),
+    );
+  }
+
+  Widget toggleAdjust() {
+    return CheckboxListTile(
+      title: const Text('Adjust'),
+      value: adjust,
+      onChanged: (value) => setState(() => adjust = value ?? false),
+    );
+  }
+
+  Widget datePicker(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          Text(
+            startDate != null
+                ? 'Selected Date:\n ${DateFormat('yyyy-MM-dd').format(startDate!)}'
+                : 'No Date Selected',
+          ),
+          MaterialButton(
+            onPressed: () async {
+              DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: startDate ?? DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2101),
+              );
+              if (picked != null && picked != startDate) {
+                setState(() => startDate = picked);
+              }
+            },
+            child:
+                const Text('Select Date', style: TextStyle(color: Colors.blue)),
+          ),
+        ],
       ),
     );
   }
@@ -180,17 +217,13 @@ class _YahooFinanceServiceWidgetState extends State<YahooFinanceServiceWidget> {
             onPressed: load,
             child: const Text('Load'),
           ),
-          const SizedBox(
-            width: 10,
-          ),
+          const SizedBox(width: 10),
           MaterialButton(
             color: Theme.of(context).colorScheme.error,
             onPressed: deleteCache,
             child: const Text('Delete Cache'),
           ),
-          const SizedBox(
-            width: 10,
-          ),
+          const SizedBox(width: 10),
           MaterialButton(
             color: Theme.of(context).colorScheme.onPrimary,
             onPressed: refresh,
@@ -198,35 +231,6 @@ class _YahooFinanceServiceWidgetState extends State<YahooFinanceServiceWidget> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget date(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          startDate != null
-              ? 'Selected Date:\n ${DateFormat('yyyy-MM-dd').format(startDate!)}'
-              : 'No Date Selected',
-        ),
-        MaterialButton(
-          onPressed: () async {
-            DateTime? picked = await showDatePicker(
-              context: context,
-              initialDate: startDate ?? DateTime.now(),
-              firstDate: DateTime(2000),
-              lastDate: DateTime(2101),
-            );
-            if (picked != null && picked != startDate) {
-              setState(() => startDate = picked);
-            }
-          },
-          child: const Text(
-            'Select Date',
-            style: TextStyle(color: Colors.blue),
-          ),
-        ),
-      ],
     );
   }
 }

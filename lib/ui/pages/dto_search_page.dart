@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:stock_compare/ui/candle_card.dart';
 import 'package:yahoo_finance_data_reader/yahoo_finance_data_reader.dart';
 
+/// This is a quite a straightforward example. Enter the ticker, then hit load.
+/// It will show the daily candles (unadjusted) since the beginning of time.
 class DTOSearch extends StatefulWidget {
   const DTOSearch();
 
@@ -34,22 +36,8 @@ class _DTOSearchState extends State<DTOSearch> {
         Expanded(
           child: FutureBuilder(
             future: future,
-            builder: (BuildContext context,
-                AsyncSnapshot<YahooFinanceResponse> snapshot) {
-              if (snapshot.connectionState == ConnectionState.done) {
-                if (snapshot.data == null) {
-                  return const Text('No data');
-                }
-
-                final YahooFinanceResponse response = snapshot.data!;
-                return ListView.builder(
-                    itemCount: response.candlesData.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final YahooFinanceCandleData candle =
-                          response.candlesData[index];
-                      return CandleCard(candle);
-                    });
-              } else {
+            builder: (_, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
                 return const Center(
                   child: SizedBox(
                     height: 50,
@@ -57,7 +45,15 @@ class _DTOSearchState extends State<DTOSearch> {
                     child: CircularProgressIndicator(),
                   ),
                 );
+              } else if (snapshot.data == null) {
+                return const Text('No data');
               }
+
+              final candles = snapshot.data!.candlesData;
+              return ListView.builder(
+                itemCount: candles.length,
+                itemBuilder: (_, idx) => CandleCard(candles[idx]),
+              );
             },
           ),
         ),
@@ -72,9 +68,7 @@ class _DTOSearchState extends State<DTOSearch> {
       debugPrint('Error: $e');
       // Show snackbar with error
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-        ),
+        SnackBar(content: Text('Error: $e')),
       );
     }
 
