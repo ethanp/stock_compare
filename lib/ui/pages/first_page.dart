@@ -1,6 +1,6 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:stock_compare/ui/my_line_chart.dart';
 import 'package:yahoo_finance_data_reader/yahoo_finance_data_reader.dart';
 
 class FirstPage extends StatefulWidget {
@@ -50,21 +50,16 @@ class _FirstPageState extends State<FirstPage> {
               Text('Loading ${customTickerC.text} ...'),
             ],
           ),
-        Expanded(child: lineChart()),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 36, left: 10, right: 14),
+            child: _pricesList.isNotEmpty
+                ? MyLineChart(_pricesList)
+                : const Text('no data'),
+          ),
+        ),
       ],
     );
-  }
-
-  LineChart lineChart() {
-    return LineChart(LineChartData(lineBarsData: [
-      LineChartBarData(
-          spots: _pricesList
-              .map((e) => FlSpot(
-                    e.date.millisecondsSinceEpoch.toDouble(),
-                    e.adjClose,
-                  ))
-              .toList())
-    ]));
   }
 
   Future<void> downloadPrices() async {
@@ -122,8 +117,8 @@ class _FirstPageState extends State<FirstPage> {
               DateTime? picked = await showDatePicker(
                 context: context,
                 initialDate: startDate ?? DateTime.now(),
-                firstDate: DateTime(2000),
-                lastDate: DateTime(2101),
+                firstDate: DateTime(1980),
+                lastDate: DateTime(2025),
               );
               if (picked != null && picked != startDate) {
                 setState(() => startDate = picked);
