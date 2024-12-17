@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:stock_compare/ui/bottom_nav_bar.dart';
+import 'package:stock_compare/ui/pages/first_page.dart';
 
 void main() => runApp(const MyApp());
 
@@ -8,10 +8,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'Flutter Demo',
+    return MaterialApp(
+      title: 'Stock Compare',
       debugShowCheckedModeBanner: false,
-      home: BottomSelectionWidget(),
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Stock Compare')),
+        body: const SafeArea(child: FirstPage()),
+      ),
     );
   }
 }
