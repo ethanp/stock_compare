@@ -1,0 +1,44 @@
+# PowerSync Open Edition Configuration for stock_compare
+
+replication:
+  connections:
+    - type: postgresql
+      hostname: postgres
+      port: 5432
+      database: stock_compare
+      username: stock_compare
+      password: !env PS_PG_PASSWORD
+      sslmode: disable
+      id: stock_compare
+
+storage:
+  type: postgresql
+  hostname: postgres
+  port: 5432
+  database: stock_compare
+  username: stock_compare
+  password: !env PS_PG_PASSWORD
+  sslmode: disable
+
+client_auth:
+  jwks:
+    keys:
+      - kty: oct
+        kid: stock-compare-dev-key
+        k: !env PS_JWT_KEY
+        alg: HS256
+  audience:
+    - powersync
+
+sync_rules:
+  content: |
+    bucket_definitions:
+      stock_compare_global:
+        priority: 0
+        data:
+          - SELECT * FROM comparison_views
+
+telemetry:
+  disable_telemetry_sharing: true
+
+port: 8080

@@ -1,30 +1,86 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:ethan_ui/ethan_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stock_compare/model/comparison_view.dart';
+import 'package:stock_compare/model/ticker_price_history.dart';
+import 'package:stock_compare/model/ticker_price_loader.dart';
+import 'package:stock_compare/model/visible_range_preset.dart';
+import 'package:stock_compare/providers/stock_compare_providers.dart';
+import 'package:stock_compare/ui/pages/portfolio_page.dart';
+import 'package:stock_compare/ui/pages/stock_compare_page.dart';
+import 'package:yahoo_finance_data_reader/yahoo_finance_data_reader.dart';
 
-import 'package:stock_compare/main.dart';
+class _StubPriceLoader() extends TickerPriceLoader {
+  @override
+  Future<TickerLoadOutcome> loadOutcome(
+    String ticker, {
+    DateTime? startDate,
+  }) async {
+    return TickerLoadOutcome.ok(
+      TickerPriceHistory(
+        ticker: ticker,
+        candles: [
+          YahooFinanceCandleData(date: DateTime(2024, 1, 1), adjClose: 100),
+          YahooFinanceCandleData(date: DateTime(2025, 1, 1), adjClose: 120),
+        ],
+      ),
+    );
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  setUpAll(() async {
+    await ETheme.loadFontsForWidgetTests();
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('compare page shows header, ticker field, and preset chips', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: ETheme.material3Dark,
+          home: StockComparePage(priceLoader: _StubPriceLoader()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    expect(find.text('Stock Compare'), findsOneWidget);
+    expect(find.byType(ETextField), findsOneWidget);
+    expect(find.text('GOOG, AAPL'), findsWidgets);
+    expect(find.text('1Y'), findsOneWidget);
+    expect(find.text('All'), findsOneWidget);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('portfolio page renders seeded saved views', (tester) async {
+    final seededView = ComparisonView(
+      id: 'v1',
+      name: 'Cloud Hyperscalers',
+      tickers: const ['GOOG', 'AMZN'],
+      rangePreset: VisibleRangePreset.fiveYears,
+      createdAt: DateTime(2026, 10, 18),
+      updatedAt: DateTime(2026, 10, 18),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          comparisonViewsStreamProvider.overrideWith(
+            (ref) => Stream.value([seededView]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: ETheme.material3Dark,
+          home: const PortfolioPage(showSyncStatus: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved comparisons'), findsOneWidget);
+    expect(find.text('Cloud Hyperscalers'), findsOneWidget);
+    expect(find.text('GOOG, AMZN · 5Y'), findsOneWidget);
   });
 }
